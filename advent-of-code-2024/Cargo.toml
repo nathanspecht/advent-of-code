@@ -2,7 +2,12 @@
 name = "advent-of-code-2024"
 version = "0.1.0"
 edition = "2021"
+default-run = "advent-of-code-2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "add-day"
+path = "src/bin/add_day.rs"
 
 [dependencies]
