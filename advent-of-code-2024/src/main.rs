@@ -1,6 +1,6 @@
 mod solutions;
 
-const CURRENT: &str = "2B";
+const CURRENT: &str = "3B";
 
 fn main() {
     match CURRENT {

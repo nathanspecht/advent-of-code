@@ -11,3 +11,4 @@ name = "add-day"
 path = "src/bin/add_day.rs"
 
 [dependencies]
+regex = "1.11.1"
