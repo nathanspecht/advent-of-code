@@ -1,6 +1,6 @@
-use std::fs;
+use crate::util;
 
 pub fn run() {
-    let _input = fs::read_to_string("src/inputs/day06_a.txt").expect("Failed to read file");
-    println!("day06_a");
+    let grid = util::read_to_grid("src/inputs/day06_a.txt");
+    println!("{:?}", grid);
 }

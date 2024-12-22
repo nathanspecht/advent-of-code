@@ -1,4 +1,5 @@
 mod solutions;
+mod util;
 
 const CURRENT: &str = "6A";
 
