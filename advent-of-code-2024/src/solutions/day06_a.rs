@@ -26,7 +26,9 @@ pub fn run() {
 
         if !util::check_bounds(&grid, next) {
             break;
-        } else if grid[next.1 as usize][next.0 as usize] == '#' {
+        }
+
+        while grid[next.1 as usize][next.0 as usize] == '#' {
             dir_index = (dir_index + 1) % 4;
             next = util::apply_dir(pos, dirs[dir_index]);
         }
