@@ -18,3 +18,11 @@ pub fn read_to_grid(path: &str) -> Vec<Vec<char>> {
 
     grid
 }
+
+pub fn check_bounds(grid: &Vec<Vec<char>>, pos: (i32, i32)) -> bool {
+    pos.0 >= 0 && pos.0 < grid[0].len() as i32 && pos.1 >= 0 && pos.1 < grid.len() as i32
+}
+
+pub fn apply_dir(pos: (i32, i32), dir: (i32, i32)) -> (i32, i32) {
+    (pos.0 + dir.0, pos.1 + dir.1)
+}
