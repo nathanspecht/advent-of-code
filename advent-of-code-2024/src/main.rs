@@ -1,7 +1,7 @@
 mod solutions;
 mod util;
 
-const CURRENT: &str = "9A";
+const CURRENT: &str = "10B";
 
 fn main() {
     match CURRENT {
@@ -23,6 +23,9 @@ fn main() {
         "8B" => solutions::day08_b::run(),
         "9A" => solutions::day09_a::run(),
         "9B" => solutions::day09_b::run(),
+        "9BB" => solutions::day09_bb::run(),
+        "10A" => solutions::day10_a::run(),
+        "10B" => solutions::day10_b::run(),
         _ => println!("No solution found for {}", CURRENT),
     }
 }
