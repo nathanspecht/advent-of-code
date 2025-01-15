@@ -1,4 +1,4 @@
-use crate::util;
+use crate::util::{self, access_grid_int};
 use std::collections::HashSet;
 
 pub fn run() {
@@ -34,11 +34,11 @@ fn calculate_score(
 
     let dirs: Vec<(i32, i32)> = vec![(0, 1), (0, -1), (1, 0), (-1, 0)];
 
-    if !util::check_bounds(&grid, (x, y)) {
+    if !util::check_bounds(grid, (x, y)) {
         return 0;
     }
 
-    let height = grid[y as usize][x as usize].to_digit(10).unwrap();
+    let height = access_grid_int(grid, (x, y));
 
     if height == 9 {
         return score + 1;
@@ -50,11 +50,11 @@ fn calculate_score(
         let x1 = x + dx;
         let y1 = y + dy;
 
-        if util::check_bounds(&grid, (x1, y1)) && !new_path.contains(&(x1, y1)) {
-            let new_height = grid[y1 as usize][x1 as usize].to_digit(10).unwrap();
+        if util::check_bounds(grid, (x1, y1)) && !new_path.contains(&(x1, y1)) {
+            let new_height = access_grid_int(grid, (x1, y1));
 
             if new_height == height + 1 {
-                score_inc += calculate_score(&grid, x1, y1, score, &new_path);
+                score_inc += calculate_score(grid, x1, y1, score, &new_path);
             }
         }
     }

@@ -1,7 +1,7 @@
 mod solutions;
 mod util;
 
-const CURRENT: &str = "10B";
+const CURRENT: &str = "10A";
 
 fn main() {
     match CURRENT {
