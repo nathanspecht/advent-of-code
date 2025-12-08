@@ -48,8 +48,6 @@ pub fn run() {
             }
         }
 
-        println!("num changed: {}", changed.len());
-
         did_change = changed.len() > 0;
 
         for (x, y) in changed {
