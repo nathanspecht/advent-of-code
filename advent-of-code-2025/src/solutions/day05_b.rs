@@ -19,8 +19,6 @@ pub fn run() {
         _ => {}
     }
 
-    fresh.sort_by(|(a, _), (b, _)| a.cmp(b));
-
     let mut i = 0;
 
     while i < fresh.len() {
