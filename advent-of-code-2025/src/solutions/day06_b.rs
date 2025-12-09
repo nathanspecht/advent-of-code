@@ -14,10 +14,8 @@ pub fn run() {
     let mut operator = '+';
     let mut current = 0;
 
-    let operator_index = split.len() - 1;
-
     for i in 0..split[0].len() {
-        match split[operator_index][i] {
+        match split[split.len() - 1][i] {
             '*' => {
                 operator = '*';
                 current = 1;
@@ -29,7 +27,7 @@ pub fn run() {
             _ => {}
         }
 
-        let column = vec![split[0][i], split[1][i], split[2][i], split[3][i]];
+        let column: Vec<char> = split[..split.len() - 1].iter().map(|row| row[i]).collect();
 
         if column.iter().all(|x| *x == ' ') {
             total += current;
@@ -52,11 +50,9 @@ pub fn run() {
             '+' => current += val,
             _ => {}
         }
-
-        if i == split[0].len() - 1 {
-            total += current;
-        }
     }
+
+    total += current;
 
     println!("{total}");
 }
