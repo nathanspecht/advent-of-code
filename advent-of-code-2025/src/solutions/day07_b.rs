@@ -1,87 +1,52 @@
-use crate::grid::{Grid, DOWN, DOWNLEFT, DOWNRIGHT, LEFT, RIGHT, UP};
+use std::collections::HashMap;
+
+use crate::grid::{Grid, DOWN, DOWNLEFT, DOWNRIGHT};
 use crate::util::read_to_grid;
 
+type Cache = HashMap<(isize, isize), u64>;
+
 pub fn run() {
-    let input = read_to_grid("src/inputs/day07_b.txt");
-    let mut grid = Grid::from(input);
+    let input = read_to_grid("src/inputs/day07_a.txt");
+    let grid = Grid::from(input);
+    let (x, y) = grid.position('S').unwrap();
 
-    let mut count = 0;
+    let mut cache: Cache = HashMap::new();
+    let count = go_forward(&grid, x, y, &mut cache);
 
-    for y in 0..grid.height {
-        for x in 0..grid.width {
-            match grid.get(x, y) {
-                Some('S') => {
-                    if grid.neighbor(x, y, DOWN) == Some(&'.') {
-                        grid.set_neighbor(x, y, DOWN, '|');
-                    }
-                }
-                Some('^') => {
-                    if grid.neighbor(x, y, UP) == Some(&'|') {
-                        grid.set_neighbor(x, y, LEFT, '|');
-                        grid.set_neighbor(x, y, RIGHT, '|');
-                    }
-                }
-                Some('.') => {
-                    if grid.neighbor(x, y, UP) == Some(&'|') {
-                        grid.set(x, y, '|');
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-
-    grid.print();
-
-    for x in 0..grid.width {
-        if grid.get(x, grid.height - 1) == Some(&'|') {
-            let (x1, y1) = UP + (x, grid.height - 1);
-            let add = follow_path(&grid, x1, y1);
-            println!("Found {add} paths for {x1}, {y1}");
-            count += add;
-        }
-    }
-
-    println!("{count}");
+    println!("{}", count);
 }
 
-fn follow_path(grid: &Grid<char>, x: isize, y: isize) -> u64 {
-    match grid.get(x, y) {
-        Some('S') => {
-            return 1;
+fn go_forward(grid: &Grid<char>, x: isize, y: isize, cache: &mut Cache) -> u64 {
+    if !grid.in_bounds(x, y) {
+        return 1;
+    }
+
+    if let Some(val) = cache.get(&(x, y)) {
+        return *val;
+    }
+
+    match grid.get(x, y).unwrap() {
+        '.' | 'S' => {
+            let (x1, y1) = DOWN + (x, y);
+
+            let val = go_forward(grid, x1, y1, cache);
+
+            cache.insert((x, y), val);
+
+            return val;
         }
-        Some('|') | Some('^') => {
-            let (x1, y1) = UP + (x, y);
-            return follow_path(grid, x1, y1);
-        }
-        Some('.') => {
-            match (
-                grid.neighbor(x, y, DOWNLEFT),
-                grid.neighbor(x, y, DOWNRIGHT),
-            ) {
-                (Some('^'), Some('^')) => {
-                    let (x1, y1) = DOWNLEFT + (x, y);
-                    let (x2, y2) = DOWNRIGHT + (x, y);
+        '^' => {
+            let (x1, y1) = DOWNLEFT + (x, y);
+            let (x2, y2) = DOWNRIGHT + (x, y);
 
-                    return follow_path(grid, x1, y1) + follow_path(grid, x2, y2);
-                }
-                (Some('^'), _) => {
-                    let (x1, y1) = DOWNLEFT + (x, y);
+            let val = go_forward(grid, x1, y1, cache) + go_forward(grid, x2, y2, cache);
 
-                    return follow_path(grid, x1, y1);
-                }
-                (_, Some('^')) => {
-                    let (x1, y1) = DOWNRIGHT + (x, y);
+            cache.insert((x, y), val);
 
-                    return follow_path(grid, x1, y1);
-                }
-                _ => {
-                    panic!("Invalid path");
-                }
-            }
+            return val;
         }
         _ => {
-            panic!("Invalid character");
+            panic!("Unexpected character: {}", grid.get(x, y).unwrap());
         }
     }
 }
