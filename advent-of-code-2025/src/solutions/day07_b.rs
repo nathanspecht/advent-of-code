@@ -25,28 +25,24 @@ fn go_forward(grid: &Grid<char>, x: isize, y: isize, cache: &mut Cache) -> u64 {
         return *val;
     }
 
-    match grid.get(x, y).unwrap() {
+    let val = match grid.get(x, y).unwrap() {
         '.' | 'S' => {
             let (x1, y1) = DOWN + (x, y);
 
-            let val = go_forward(grid, x1, y1, cache);
-
-            cache.insert((x, y), val);
-
-            return val;
+            go_forward(grid, x1, y1, cache)
         }
         '^' => {
             let (x1, y1) = DOWNLEFT + (x, y);
             let (x2, y2) = DOWNRIGHT + (x, y);
 
-            let val = go_forward(grid, x1, y1, cache) + go_forward(grid, x2, y2, cache);
-
-            cache.insert((x, y), val);
-
-            return val;
+            go_forward(grid, x1, y1, cache) + go_forward(grid, x2, y2, cache)
         }
         _ => {
             panic!("Unexpected character: {}", grid.get(x, y).unwrap());
         }
-    }
+    };
+
+    cache.insert((x, y), val);
+
+    return val;
 }
