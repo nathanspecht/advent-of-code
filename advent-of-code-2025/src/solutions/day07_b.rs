@@ -2,7 +2,7 @@ use crate::grid::{Grid, DOWN, DOWNLEFT, DOWNRIGHT, LEFT, RIGHT, UP};
 use crate::util::read_to_grid;
 
 pub fn run() {
-    let input = read_to_grid("src/inputs/day07_a.txt");
+    let input = read_to_grid("src/inputs/day07_b.txt");
     let mut grid = Grid::from(input);
 
     let mut count = 0;
@@ -17,7 +17,6 @@ pub fn run() {
                 }
                 Some('^') => {
                     if grid.neighbor(x, y, UP) == Some(&'|') {
-                        count += 1;
                         grid.set_neighbor(x, y, LEFT, '|');
                         grid.set_neighbor(x, y, RIGHT, '|');
                     }
@@ -37,7 +36,9 @@ pub fn run() {
     for x in 0..grid.width {
         if grid.get(x, grid.height - 1) == Some(&'|') {
             let (x1, y1) = UP + (x, grid.height - 1);
-            count += follow_path(&grid, x1, y1);
+            let add = follow_path(&grid, x1, y1);
+            println!("Found {add} paths for {x1}, {y1}");
+            count += add;
         }
     }
 
