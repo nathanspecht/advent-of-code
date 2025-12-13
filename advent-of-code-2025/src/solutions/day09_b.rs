@@ -1,6 +1,6 @@
-use std::fs;
+use std::{collections::HashMap, fs};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 struct Point {
     x: i64,
     y: i64,
@@ -16,7 +16,38 @@ fn check_intersect((h1, h2): &(Point, Point), (v1, v2): &(Point, Point)) -> bool
     (x_range.0 <= x && x <= x_range.1) && (y_range.0 <= y && y <= y_range.1)
 }
 
-fn is_inside(point: &Point, vertical_segments: &Vec<(Point, Point)>) -> bool {
+fn is_inside(
+    point: &Point,
+    vertical_segments: &Vec<(Point, Point)>,
+    horizontal_segments: &Vec<(Point, Point)>,
+) -> bool {
+    let mut num_right = 0;
+
+    for segment in horizontal_segments {
+        if check_intersect(segment, &(point.clone(), point.clone())) {
+            return true;
+        }
+    }
+
+    for segment in vertical_segments {
+        if check_intersect(&(point.clone(), point.clone()), segment) {
+            return true;
+        }
+
+        let horizontal_point = Point {
+            y: point.y,
+            x: i64::MAX,
+        };
+
+        if check_intersect(&(point.clone(), horizontal_point), &segment) {
+            num_right += 1;
+        }
+    }
+
+    return num_right % 2 != 0;
+}
+
+fn _is_inside(point: &Point, vertical_segments: &Vec<(Point, Point)>) -> bool {
     let num_right = vertical_segments
         .iter()
         .filter(|segment| {
@@ -32,7 +63,7 @@ fn is_inside(point: &Point, vertical_segments: &Vec<(Point, Point)>) -> bool {
     num_right % 2 != 0
 }
 
-fn is_on_segment(
+fn _is_on_segment(
     point: &Point,
     vertical_segments: &Vec<(Point, Point)>,
     horizontal_segments: &Vec<(Point, Point)>,
@@ -53,7 +84,7 @@ fn is_on_segment(
 }
 
 pub fn run() {
-    let input = fs::read_to_string("src/inputs/day09_b.txt").expect("Failed to read file");
+    let input = fs::read_to_string("src/inputs/day09_a.txt").expect("Failed to read file");
     let mut coords: Vec<Point> = vec![];
     let mut vertical_segments: Vec<(Point, Point)> = vec![];
     let mut horizontal_segments: Vec<(Point, Point)> = vec![];
@@ -85,37 +116,54 @@ pub fn run() {
     let mut max_string: String = String::new();
     let mut max = 0;
 
+    let mut cache: HashMap<Point, bool> = HashMap::new();
+
+    let mut rectangles: Vec<(Point, Point, u64)> = vec![];
+
     for a in &coords {
-        'inner: for b in &coords {
+        for b in &coords {
             let width = a.x.abs_diff(b.x) + 1;
             let height = a.y.abs_diff(b.y) + 1;
             let area = width * height;
 
-            if area <= max {
-                continue 'inner;
-            }
+            rectangles.push((a.clone(), b.clone(), area));
+        }
+    }
 
-            let label = format!("{:?}, {:?}", a, b);
+    rectangles.sort_by(|a, b| b.2.cmp(&a.2));
 
-            let x_min = a.x.min(b.x);
-            let x_max = a.x.max(b.x);
-            let y_min = a.y.min(b.y);
-            let y_max = a.y.max(b.y);
+    println!("Num rectangles: {}", rectangles.len());
 
-            for x in x_min..=x_max {
-                for y in y_min..=y_max {
+    'outer: for (i, (a, b, area)) in rectangles.iter().enumerate() {
+        println!("{}/{}: {}", i, rectangles.len(), area);
+        let label = format!("{:?}, {:?}", a, b);
+
+        let x_min = a.x.min(b.x);
+        let x_max = a.x.max(b.x);
+        let y_min = a.y.min(b.y);
+        let y_max = a.y.max(b.y);
+
+        for x in x_min..=x_max {
+            for y in y_min..=y_max {
+                let is_inside_cached = cache.get(&Point { x, y }).unwrap_or(&false);
+
+                if !is_inside_cached {
                     if !coords.contains(&Point { x, y })
-                        && !is_on_segment(&Point { x, y }, &vertical_segments, &horizontal_segments)
-                        && !is_inside(&Point { x, y }, &vertical_segments)
+                        && !is_inside(&Point { x, y }, &vertical_segments, &horizontal_segments)
                     {
-                        continue 'inner;
+                        cache.insert(Point { x, y }, false);
+                        continue 'outer;
+                    } else {
+                        cache.insert(Point { x, y }, true);
                     }
                 }
             }
-
-            max = area;
-            max_string = label;
         }
+
+        max = *area as i64;
+        max_string = label;
+
+        break 'outer;
     }
 
     println!("{max}");
