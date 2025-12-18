@@ -1,5 +1,36 @@
 use plotters::prelude::*;
-use std::fs;
+use std::{collections::HashSet, fs};
+
+#[derive(Copy, Clone, Debug)]
+enum Axis {
+    X,
+    Y,
+}
+
+struct Range {
+    min: i64,
+    max: i64,
+}
+
+impl Range {
+    pub fn from(a: &Point, b: &Point, axis: Axis) -> Range {
+        Range {
+            min: a[axis].min(b[axis]),
+            max: a[axis].max(b[axis]),
+        }
+    }
+
+    pub fn contains(&self, other: i64) -> bool {
+        self.min <= other && other <= self.max
+    }
+
+    pub fn overlaps(&self, other: Range) -> bool {
+        self.contains(other.min)
+            || self.contains(other.max)
+            || other.contains(self.min)
+            || other.contains(self.max)
+    }
+}
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 struct Point {
@@ -7,98 +38,159 @@ struct Point {
     y: i64,
 }
 
-fn check_intersect((h1, h2): &(Point, Point), (v1, v2): &(Point, Point)) -> bool {
-    let y = h1.y;
-    let x = v1.x;
+impl std::ops::Index<Axis> for Point {
+    type Output = i64;
 
-    let x_range = (h1.x.min(h2.x), h1.x.max(h2.x));
-    let y_range = (v1.y.min(v2.y), v1.y.max(v2.y));
-
-    (x_range.0 <= x && x <= x_range.1) && (y_range.0 <= y && y <= y_range.1)
+    fn index(&self, axis: Axis) -> &Self::Output {
+        match axis {
+            Axis::X => &self.x,
+            Axis::Y => &self.y,
+        }
+    }
 }
 
-fn is_inside(
-    point: &Point,
-    vertical_segments: &Vec<(Point, Point)>,
-    horizontal_segments: &Vec<(Point, Point)>,
-) -> bool {
-    let mut num_right = 0;
+#[derive(Clone)]
+struct Segment {
+    points: (Point, Point),
+}
 
-    for segment in horizontal_segments {
-        if check_intersect(segment, &(point.clone(), point.clone())) {
-            return true;
+impl Segment {
+    pub fn from(a: Point, b: Point) -> Segment {
+        Segment { points: (a, b) }
+    }
+
+    fn range(&self, axis: Axis) -> Range {
+        Range::from(&self.points.0, &self.points.1, axis)
+    }
+
+    pub fn x_range(&self) -> Range {
+        self.range(Axis::X)
+    }
+
+    pub fn y_range(&self) -> Range {
+        self.range(Axis::Y)
+    }
+
+    pub fn is_vertical(&self) -> bool {
+        self.points.0.x == self.points.1.x
+    }
+
+    pub fn is_horizontal(&self) -> bool {
+        self.points.0.y == self.points.1.y
+    }
+
+    pub fn contains(&self, point: &Point) -> bool {
+        if self.is_horizontal() {
+            return self.points.0.y == point.y && self.x_range().contains(point.x);
+        } else {
+            return self.points.0.x == point.x && self.y_range().contains(point.y);
         }
     }
 
-    for segment in vertical_segments {
-        if check_intersect(&(point.clone(), point.clone()), segment) {
-            return true;
+    pub fn check_intersect(&self, other: &Segment) -> bool {
+        if self.is_vertical() && other.is_vertical() {
+            return self.points.0.x == other.points.0.x && self.y_range().overlaps(other.y_range());
         }
 
-        let horizontal_point = Point {
-            y: point.y,
-            x: i64::MAX,
-        };
-
-        if check_intersect(&(point.clone(), horizontal_point), &segment) {
-            num_right += 1;
+        if self.is_horizontal() && other.is_horizontal() {
+            return self.points.0.y == other.points.0.y && self.x_range().overlaps(other.x_range());
         }
+
+        if self.is_horizontal() && other.is_vertical() {
+            return other.y_range().contains(self.points.0.y)
+                && self.x_range().contains(other.points.0.x);
+        }
+
+        if self.is_vertical() && other.is_horizontal() {
+            return other.x_range().contains(self.points.0.x)
+                && self.y_range().contains(other.points.0.y);
+        }
+
+        panic!("Lines must be vertical or horizontal");
     }
-
-    return num_right % 2 != 0;
 }
 
-fn _is_inside(point: &Point, vertical_segments: &Vec<(Point, Point)>) -> bool {
-    let num_right = vertical_segments
-        .iter()
-        .filter(|segment| {
-            let horizontal_point = Point {
-                y: point.y,
-                x: i64::MAX,
-            };
-
-            return check_intersect(&(point.clone(), horizontal_point), &segment);
-        })
-        .count();
-
-    num_right % 2 != 0
+struct Shape {
+    segments: Vec<Segment>,
 }
 
-fn _is_on_segment(
-    point: &Point,
-    vertical_segments: &Vec<(Point, Point)>,
-    horizontal_segments: &Vec<(Point, Point)>,
-) -> bool {
-    for segment in vertical_segments {
-        if check_intersect(&(point.clone(), point.clone()), segment) {
-            return true;
-        }
+impl Shape {
+    pub fn new() -> Shape {
+        Shape { segments: vec![] }
     }
 
-    for segment in horizontal_segments {
-        if check_intersect(segment, &(point.clone(), point.clone())) {
-            return true;
-        }
+    pub fn push(&mut self, segment: Segment) {
+        self.segments.push(segment)
     }
 
-    return false;
-}
+    pub fn contains(&self, point: &Point) -> bool {
+        let mut segments_touched: Vec<Segment> = vec![];
 
-fn get_center(points: &[Point; 4]) -> Point {
-    let sum_x: i64 = points.iter().map(|p| p.x).sum();
-    let sum_y: i64 = points.iter().map(|p| p.y).sum();
+        for segment in &self.segments {
+            if segment.contains(point) {
+                return true;
+            }
 
-    Point {
-        x: sum_x / 4,
-        y: sum_y / 4,
+            let right_ray = Segment::from(
+                point.clone(),
+                Point {
+                    y: point.y,
+                    x: i64::MAX,
+                },
+            );
+
+            if segment.check_intersect(&right_ray) {
+                segments_touched.push(segment.clone());
+            }
+        }
+
+        let mut has_merged = true;
+
+        while has_merged {
+            has_merged = false;
+
+            'outer: for i in 0..segments_touched.len() {
+                for j in (i + 1)..segments_touched.len() {
+                    let a = &segments_touched[i];
+                    let b = &segments_touched[j];
+
+                    let merged = if a.points.0 == b.points.0 {
+                        Some(Segment::from(a.points.1.clone(), b.points.1.clone()))
+                    } else if a.points.0 == b.points.1 {
+                        Some(Segment::from(a.points.1.clone(), b.points.0.clone()))
+                    } else if a.points.1 == b.points.0 {
+                        Some(Segment::from(a.points.0.clone(), b.points.1.clone()))
+                    } else if a.points.1 == b.points.1 {
+                        Some(Segment::from(a.points.0.clone(), b.points.0.clone()))
+                    } else {
+                        None
+                    };
+
+                    if let Some(new_seg) = merged {
+                        segments_touched.remove(j);
+                        segments_touched.remove(i);
+
+                        segments_touched.push(new_seg);
+
+                        has_merged = true;
+                        break 'outer;
+                    } else {
+                        has_merged = false;
+                    }
+                }
+            }
+        }
+
+        println!("Num segments: {}", segments_touched.len());
+
+        return segments_touched.len() % 2 != 0;
     }
 }
 
 pub fn run() {
     let input = fs::read_to_string("src/inputs/day09_a.txt").expect("Failed to read file");
     let mut coords: Vec<Point> = vec![];
-    let mut vertical_segments: Vec<(Point, Point)> = vec![];
-    let mut horizontal_segments: Vec<(Point, Point)> = vec![];
+    let mut shape = Shape::new();
 
     for line in input.lines() {
         let (a, b) = line.split_once(',').unwrap();
@@ -107,11 +199,6 @@ pub fn run() {
 
         coords.push(Point { x, y });
     }
-
-    let points: Vec<(i32, i32)> = coords
-        .iter()
-        .map(|point| (point.x as i32, point.y as i32))
-        .collect();
 
     for i in 0..coords.len() {
         let prev = if i == 0 {
@@ -122,23 +209,24 @@ pub fn run() {
 
         let curr = coords[i].clone();
 
-        if prev.x == curr.x {
-            vertical_segments.push((prev, curr));
-        } else if prev.y == curr.y {
-            horizontal_segments.push((prev, curr));
-        }
+        shape.push(Segment::from(prev, curr));
     }
 
     let mut max_string: String = String::new();
     let mut max = 0;
-    let mut max_corners: Option<[Point; 4]> = None;
-
-    // let mut cache: HashMap<Point, bool> = HashMap::new();
 
     let mut rectangles: Vec<(Point, Point, u64)> = vec![];
 
     for a in &coords {
         for b in &coords {
+            // if !(a.x == 75487 && a.y == 91729 && b.x == 12644 && b.y == 18423) {
+            //    continue;
+            //}
+
+            if a == b {
+                continue;
+            }
+
             let width = a.x.abs_diff(b.x) + 1;
             let height = a.y.abs_diff(b.y) + 1;
             let area = width * height;
@@ -149,84 +237,65 @@ pub fn run() {
 
     rectangles.sort_by(|a, b| b.2.cmp(&a.2));
 
-    println!("Num rectangles: {}", rectangles.len());
+    let mut final_rectangle: Option<Vec<Point>> = None;
 
-    'outer: for (i, (a, b, area)) in rectangles.iter().enumerate() {
-        println!("{}/{}: {}", i, rectangles.len(), area);
+    'outer: for (a, b, area) in rectangles {
         let label = format!("{:?}, {:?}", a, b);
 
-        let corners = [
+        let _rectangle = [
+            Segment::from(a.clone(), Point { x: a.x, y: b.y }),
+            Segment::from(b.clone(), Point { x: b.x, y: a.y }),
+            Segment::from(a.clone(), Point { x: b.x, y: a.y }),
+            Segment::from(b.clone(), Point { x: a.x, y: b.y }),
+        ];
+
+        let rectangle_points = vec![
             a.clone(),
-            b.clone(),
             Point { x: a.x, y: b.y },
+            b.clone(),
             Point { x: b.x, y: a.y },
         ];
 
-        for corner in &corners {
-            if !is_inside(&corner, &vertical_segments, &horizontal_segments) {
+        for point in &rectangle_points {
+            if !shape.contains(&point) {
                 continue 'outer;
             }
         }
 
-        let center = get_center(&corners);
-
-        if !is_inside(&center, &vertical_segments, &horizontal_segments) {
-            continue 'outer;
-        }
-
-        /*
-                let x_min = a.x.min(b.x);
-                let x_max = a.x.max(b.x);
-                let y_min = a.y.min(b.y);
-                let y_max = a.y.max(b.y);
-
-                for x in x_min..=x_max {
-                    for y in y_min..=y_max {
-                        let is_inside_cached = cache.get(&Point { x, y }).unwrap_or(&false);
-
-                        if !is_inside_cached {
-                            if !coords.contains(&Point { x, y })
-                                && !is_inside(&Point { x, y }, &vertical_segments, &horizontal_segments)
-                            {
-                                cache.insert(Point { x, y }, false);
-                                continue 'outer;
-                            } else {
-                                cache.insert(Point { x, y }, true);
-                            }
-                        }
-                    }
-                }
-        */
-
-        max = *area as i64;
+        final_rectangle = Some(rectangle_points);
+        max = area as i64;
         max_string = label;
-        max_corners = Some(corners);
 
         break 'outer;
     }
 
-    let draw_corners: Vec<(i32, i32)> = max_corners
-        .unwrap()
-        .iter()
-        .map(|p| (p.x as i32, p.y as i32))
-        .collect();
-
-    let draw_corners: [(i32, i32); 4] = [
-        draw_corners[0],
-        draw_corners[1],
-        draw_corners[2],
-        draw_corners[3],
-    ];
-
-    let _ = draw_shape(&points, &draw_corners, "src/inputs/day09.png");
-
     println!("{max}");
     println!("{max_string}");
+
+    let draw_segments: Vec<(i32, i32)> = shape
+        .segments
+        .iter()
+        .map(|segment| (segment.points.0.x as i32, segment.points.0.y as i32))
+        .collect();
+
+    let draw_rectangle: Vec<(i32, i32)> = final_rectangle
+        .unwrap()
+        .iter()
+        .map(|point| (point.x as i32, point.y as i32))
+        .collect();
+
+    println!("{:?}", draw_rectangle);
+
+    let _ = draw_shape(
+        &draw_segments,
+        &draw_rectangle,
+        "src/visualizations/day09_plot.png",
+    );
 }
 
 fn draw_shape(
-    shape: &[(i32, i32)],
-    rect: &[(i32, i32); 4],
+    shape: &Vec<(i32, i32)>,
+    rect: &Vec<(i32, i32)>,
     output_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     assert!(shape.len() >= 2, "Shape needs at least two points");
@@ -254,12 +323,12 @@ fn draw_shape(
         });
 
     // Create drawing area
-    let root = BitMapBackend::new(output_path, (800, 600)).into_drawing_area();
+    let root = BitMapBackend::new(output_path, (3840, 2160)).into_drawing_area();
     root.fill(&WHITE)?;
 
     let mut chart = ChartBuilder::on(&root)
         .margin(20)
-        .caption("Shape + Rectangle", ("sans-serif", 30))
+        .caption("Day 09", ("sans-serif", 30))
         .build_cartesian_2d(min_x..max_x, min_y..max_y)?;
 
     chart.configure_mesh().draw()?;
